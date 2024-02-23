@@ -1,6 +1,10 @@
 name: Create and publish a Docker image
 
-on: [pull_request]
+on: 
+  pull_request:
+  push:
+    branches: ["master"]
+
 
 env:
   REGISTRY: ghcr.io
