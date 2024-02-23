@@ -17,6 +17,6 @@ WORKDIR /
 COPY --from=builder /workspace/nest .
 RUN apk add --no-cache curl
 USER 65532:65532
-HEALTHCHECK CMD curl --fail http://localhost:9230/health
+HEALTHCHECK CMD curl --fail http://localhost:8080/health
 
 ENTRYPOINT ["/nest"]
