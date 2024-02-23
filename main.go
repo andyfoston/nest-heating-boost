@@ -156,6 +156,9 @@ func main() {
 	mux.HandleFunc("/", homePage)
 	mux.HandleFunc("/authorize", AuthorizeAccess)
 	mux.HandleFunc("/code", code)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	http.ListenAndServe(":8080", mux)
 }
