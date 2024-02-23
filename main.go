@@ -159,6 +159,13 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		_, err := cookieStore.Get(r, "session")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Unable to access cookiestore: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 	http.ListenAndServe(":8080", mux)
 }
