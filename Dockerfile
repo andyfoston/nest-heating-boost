@@ -15,6 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o nest .
 FROM alpine:3.19
 WORKDIR /
 COPY --from=builder /workspace/nest .
+COPY --from=builder /workspace/templates ./templates
 RUN apk add --no-cache curl
 USER 65532:65532
 EXPOSE 8080
