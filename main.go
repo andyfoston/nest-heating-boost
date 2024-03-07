@@ -63,7 +63,16 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	//fmt.Printf("New Token: %s\n", token.AccessToken)
 	devices, _ := GetDevices(token.AccessToken)
 	fmt.Printf("DEVICES: %v\n", devices)
-
+	if devices == nil {
+		log.Println("Unable to get a list of devices")
+		session.AddFlash(Flash.Flash{
+			Level:   Flash.WARN,
+			Message: "Unable to get a list of devices. Please try authorization access to Nest again",
+		})
+		session.Save(r, w)
+		http.Redirect(w, r, "/authorize", http.StatusTemporaryRedirect)
+		return
+	}
 	err = ts.ExecuteTemplate(w, "base", map[string]interface{}{"Flashes": session.Flashes(), "Devices": devices.Devices})
 	if err != nil {
 		log.Println(err.Error())
