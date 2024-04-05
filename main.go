@@ -26,6 +26,8 @@ func getCookieStore() *redistore.RediStore {
 	if err != nil {
 		panic(err)
 	}
+	// MaxAge == 1 year
+	store.SetMaxAge(365 * 24 * 3600)
 	return store
 }
 
@@ -159,9 +161,10 @@ func main() {
 		refreshToken := session.Values["refresh_token"].(string)
 		token, _ := GetTokenFromRefreshToken(refreshToken)
 		go runBoost(*token, deviceId, float32(temperature), int(duration))
+		temp := strconv.FormatFloat(temperature, 'f', -1, 64)
 		session.AddFlash(Flash.Flash{
 			Level:   Flash.INFO,
-			Message: fmt.Sprintf("Setting heating to %.1f °C for %d minute(s)", temperature, duration),
+			Message: fmt.Sprintf("Setting heating to %s°C for %d minute(s)", temp, duration),
 		})
 		session.Save(r, w)
 	})
