@@ -171,14 +171,15 @@ func _authenticate(uri string) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Authenticate uri: %s, status code: %d\n", uri, resp.StatusCode)
-	if resp.StatusCode >= 400{
-		return nil, fmt.Errorf("Unexpected response: %s", resp.Body)
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	log.Printf("Authenticate uri: %s, status code: %d\n", uri, resp.StatusCode)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("Unexpected response: %s", body)
 	}
 
 	token := Token{}
