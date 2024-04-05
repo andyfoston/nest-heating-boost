@@ -22,9 +22,9 @@ const (
 )
 
 func hasAuthorizationCode(session *sessions.Session) bool {
-	_, authOk := session.Values[authorizationCodeKey]
-	_, refreshOk := session.Values[refreshTokenKey]
-	return authOk && refreshOk
+	authCode, authOk := session.Values[authorizationCodeKey]
+	refreshToken, refreshOk := session.Values[refreshTokenKey]
+	return authOk && refreshOk && authCode != "" && refreshToken != ""
 }
 
 func getRedirectURL(r *http.Request) string {
@@ -172,8 +172,9 @@ func _authenticate(uri string) (*Token, error) {
 		return nil, err
 	}
 	log.Printf("Authenticate uri: %s, status code: %d\n", uri, resp.StatusCode)
-
-	// TODO check response code
+	if resp.StatusCode >= 400{
+		return nil, fmt.Errorf("Unexpected response: %s", resp.Body)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
