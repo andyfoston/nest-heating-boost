@@ -16,9 +16,14 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+const (
+	authorizationCodeKey = "authorizationCode"
+	refreshTokenKey      = "refresh_token"
+)
+
 func hasAuthorizationCode(session *sessions.Session) bool {
-	_, authOk := session.Values["authorizationCode"]
-	_, refreshOk := session.Values["refresh_token"]
+	_, authOk := session.Values[authorizationCodeKey]
+	_, refreshOk := session.Values[refreshTokenKey]
 	return authOk && refreshOk
 }
 
@@ -116,7 +121,7 @@ func code(w http.ResponseWriter, r *http.Request) {
 	// https://developers.google.com/identity/protocols/oauth2/web-server#authorization-errors
 
 	if code, ok := parsedQuery["code"]; ok {
-		session.Values["authorizationCode"] = code[0]
+		session.Values[authorizationCodeKey] = code[0]
 		token, err := GetTokenFromAuthCode(code[0], getRedirectURL(r))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error: %s", err), http.StatusInternalServerError)
@@ -124,7 +129,7 @@ func code(w http.ResponseWriter, r *http.Request) {
 		}
 		// Initial call required
 		GetDevices(token.AccessToken)
-		session.Values["refresh_token"] = token.RefreshToken
+		session.Values[refreshTokenKey] = token.RefreshToken
 		// MaxAge == 1 year
 		session.Options.MaxAge = 365 * 24 * 3600
 		session.AddFlash(flash.Flash{

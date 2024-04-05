@@ -60,7 +60,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// FIXME handle errors
-	refreshToken := session.Values["refresh_token"].(string)
+	refreshToken := session.Values[refreshTokenKey].(string)
 	token, _ := GetTokenFromRefreshToken(refreshToken)
 	//fmt.Printf("New Token: %s\n", token.AccessToken)
 	devices, _ := GetDevices(token.AccessToken)
@@ -155,7 +155,7 @@ func main() {
 		}
 
 		// FIXME handle error
-		refreshToken := session.Values["refresh_token"].(string)
+		refreshToken := session.Values[refreshTokenKey].(string)
 		token, _ := GetTokenFromRefreshToken(refreshToken)
 		go runBoost(*token, deviceId, float32(temperature), int(duration))
 		session.AddFlash(Flash.Flash{
