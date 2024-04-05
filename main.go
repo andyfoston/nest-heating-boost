@@ -101,11 +101,8 @@ func runBoost(token Token, deviceId string, desiredTemp float32, duration int) {
 	if err != nil {
 		log.Printf("Failed to get a new access token: %s", err)
 		return
-	} else if newToken.AccessToken != "" && token.AccessToken != newToken.AccessToken {
-		token = *newToken
-	} else {
-		log.Println("Token not refreshed", token)
 	}
+	token = *newToken
 	log.Printf("Token: %v", token)
 	newTemperature, err := GetTemperature(token.AccessToken, deviceId)
 	if err != nil {
@@ -161,10 +158,9 @@ func main() {
 		refreshToken := session.Values["refresh_token"].(string)
 		token, _ := GetTokenFromRefreshToken(refreshToken)
 		go runBoost(*token, deviceId, float32(temperature), int(duration))
-		temp := strconv.FormatFloat(temperature, 'f', -1, 64)
 		session.AddFlash(Flash.Flash{
 			Level:   Flash.INFO,
-			Message: fmt.Sprintf("Setting heating to %s°C for %d minute(s)", temp, duration),
+			Message: fmt.Sprintf("Setting heating to %s°C for %d minute(s)", r.FormValue("temperature"), duration),
 		})
 		session.Save(r, w)
 	})
