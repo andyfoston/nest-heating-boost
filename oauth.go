@@ -202,7 +202,12 @@ func GetTokenFromRefreshToken(refreshToken string) (*Token, error) {
 	uri := fmt.Sprintf("https://www.googleapis.com/oauth2/v4/token?client_id=%s&client_secret=%s&refresh_token=%s&grant_type=refresh_token",
 		clientID, clientSecret, refreshToken,
 	)
-	return _authenticate(uri)
+	token, err := _authenticate(uri)
+	if err == nil {
+		// re-inject refresh token into response
+		token.RefreshToken = refreshToken
+	}
+	return token, err
 }
 
 // TODO implement token exchange: https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code
