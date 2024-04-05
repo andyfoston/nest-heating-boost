@@ -101,10 +101,13 @@ func runBoost(token Token, deviceId string, desiredTemp float32, duration int) {
 		return
 	} else if newToken.AccessToken != "" && token.AccessToken != newToken.AccessToken {
 		token = *newToken
+	} else {
+		log.Println("Token not refreshed", token)
 	}
+	log.Printf("Token: %v", token)
 	newTemperature, err := GetTemperature(token.AccessToken, deviceId)
 	if err != nil {
-		log.Printf("Failed to get temperature before resetting to normal: %s", err)
+		log.Println("Failed to get temperature before resetting to normal:", err)
 		return
 	}
 	if *newTemperature != desiredTemp {
