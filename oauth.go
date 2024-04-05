@@ -164,6 +164,7 @@ func _authenticate(uri string) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Authenticate uri: %s, status code: %d\n", uri, resp.StatusCode)
 
 	// TODO check response code
 
