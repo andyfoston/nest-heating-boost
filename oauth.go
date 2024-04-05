@@ -17,8 +17,9 @@ import (
 )
 
 func hasAuthorizationCode(session *sessions.Session) bool {
-	_, ok := session.Values["authorizationCode"]
-	return ok
+	_, authOk := session.Values["authorizationCode"]
+	_, refreshOk := session.Values["refresh_token"]
+	return authOk && refreshOk
 }
 
 func getRedirectURL(r *http.Request) string {
@@ -124,7 +125,8 @@ func code(w http.ResponseWriter, r *http.Request) {
 		// Initial call required
 		GetDevices(token.AccessToken)
 		session.Values["refresh_token"] = token.RefreshToken
-		session.Options.MaxAge = 0
+		// MaxAge == 1 year
+		session.Options.MaxAge = 365 * 24 * 3600
 		session.AddFlash(flash.Flash{
 			Level:   flash.INFO,
 			Message: "Successfully authenticated with Google",
