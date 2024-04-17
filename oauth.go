@@ -13,7 +13,6 @@ import (
 	"time"
 
 	flash "github.com/andyfoston/nest-heating-boost/flash"
-	"github.com/gorilla/sessions"
 )
 
 const (
@@ -21,9 +20,15 @@ const (
 	refreshTokenKey      = "refresh_token"
 )
 
-func hasAuthorizationCode(session *sessions.Session) bool {
-	authCode, authOk := session.Values[authorizationCodeKey]
-	refreshToken, refreshOk := session.Values[refreshTokenKey]
+//func hasAuthorizationCode(session *sessions.Session) bool {
+//	authCode, authOk := session.Values[authorizationCodeKey]
+//	refreshToken, refreshOk := session.Values[refreshTokenKey]
+//	return authOk && refreshOk && authCode != "" && refreshToken != ""
+//}
+
+func hasAuthorizationCode(values map[string]string) bool {
+	authCode, authOk := values[authorizationCodeKey]
+	refreshToken, refreshOk := values[refreshTokenKey]
 	return authOk && refreshOk && authCode != "" && refreshToken != ""
 }
 
@@ -75,11 +80,12 @@ func AuthorizeAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	authURL.RawQuery = params.Encode()
 
-	session, err := cookieStore.Get(r, "session")
+	//session, err := cookieStore.Get(r, "session")
+	flashes, err := flash.GetFlashes(w, r)
 	if err != nil {
 		log.Print(err.Error())
 	}
-	err = ts.ExecuteTemplate(w, "base", map[string]interface{}{"authorizeURL": authURL, "Flashes": session.Flashes()})
+	err = ts.ExecuteTemplate(w, "base", map[string]interface{}{"authorizeURL": authURL, "Flashes": flashes})
 	if err != nil {
 		log.Print(err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -87,7 +93,8 @@ func AuthorizeAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func code(w http.ResponseWriter, r *http.Request) {
-	session, err := cookieStore.Get(r, "session")
+	//session, err := cookieStore.Get(r, "session")
+	data, err := getCookie(r)
 	if err != nil {
 		log.Print(err.Error())
 	}
@@ -121,7 +128,7 @@ func code(w http.ResponseWriter, r *http.Request) {
 	// https://developers.google.com/identity/protocols/oauth2/web-server#authorization-errors
 
 	if code, ok := parsedQuery["code"]; ok {
-		session.Values[authorizationCodeKey] = code[0]
+		data[authorizationCodeKey] = code[0]
 		token, err := GetTokenFromAuthCode(code[0], getRedirectURL(r))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error: %s", err), http.StatusInternalServerError)
@@ -129,18 +136,16 @@ func code(w http.ResponseWriter, r *http.Request) {
 		}
 		// Initial call required
 		GetDevices(token.AccessToken)
-		session.Values[refreshTokenKey] = token.RefreshToken
+		data[refreshTokenKey] = token.RefreshToken
+		setCookie(data, w)
 		// MaxAge == 1 year
-		session.Options.MaxAge = 365 * 24 * 3600
-		session.AddFlash(flash.Flash{
+		//session.Options.MaxAge = 365 * 24 * 3600
+		flashes := make([]flash.Flash, 0, 1)
+		flashes = append(flashes, flash.Flash{
 			Level:   flash.INFO,
 			Message: "Successfully authenticated with Google",
 		})
-		err = session.Save(r, w)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error: %s", err), http.StatusInternalServerError)
-			return
-		}
+		flash.SetFlashes(w, flashes)
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 	} else if errorCode, ok := parsedQuery["error"]; ok {
 		w.Write([]byte(fmt.Sprintf("Got an error response from Google: %s", errorCode[0])))
@@ -206,6 +211,7 @@ func GetTokenFromRefreshToken(refreshToken string) (*Token, error) {
 	if err == nil {
 		// re-inject refresh token into response
 		token.RefreshToken = refreshToken
+
 	}
 	return token, err
 }
