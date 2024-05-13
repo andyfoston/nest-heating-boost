@@ -87,7 +87,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 		log.Print(err.Error())
 	}
 	if !hasAuthorizationCode(data) {
-		http.Redirect(w, r, "/authorize", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/authorize", http.StatusSeeOther)
 		return
 	}
 
@@ -179,7 +179,7 @@ func main() {
 	mux.HandleFunc("/boost", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		// Setting the redirect before cookies appears to cause cookies not to be set
-		defer http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		defer http.Redirect(w, r, "/", http.StatusSeeOther)
 		deviceId := r.FormValue("device")
 		temperature, tempErr := strconv.ParseFloat(r.FormValue("temperature"), 32)
 		duration, durationErr := strconv.ParseInt(r.FormValue("duration"), 10, 16)

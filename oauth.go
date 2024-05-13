@@ -57,16 +57,6 @@ func AuthorizeAccess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	redirectURL := getRedirectURL(r)
-	//authURL, _ := url.Parse("https://accounts.google.com/o/oauth2/v2/auth")
-	//params := url.Values{}
-	//params.Add("client_id", clientID)
-	//params.Add("redirect_uri", redirectURL)
-	//params.Add("response_type", "code")
-	//params.Add("scope", "https://www.googleapis.com/auth/sdm.service")
-	//params.Add("state", GetStateValueForSession(r))
-	//params.Add("access_type", "offline")
-	//params.Add("prompt", "consent")
-	//authURL.RawQuery = params.Encode()
 	authURL, _ := url.Parse(fmt.Sprintf(
 		"https://nestservices.google.com/partnerconnections/%s/auth", projectID,
 	))
@@ -80,7 +70,6 @@ func AuthorizeAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	authURL.RawQuery = params.Encode()
 
-	//session, err := cookieStore.Get(r, "session")
 	flashes, err := flash.GetFlashes(w, r)
 	if err != nil {
 		log.Print(err.Error())
@@ -93,12 +82,10 @@ func AuthorizeAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func code(w http.ResponseWriter, r *http.Request) {
-	//session, err := cookieStore.Get(r, "session")
 	data, err := getCookie(r)
 	if err != nil {
 		log.Print(err.Error())
 	}
-	//expectedState := GetStateValueForSession(r)
 	parsedURL, err := url.Parse(r.RequestURI)
 	if err != nil {
 		log.Printf("Failed to parse URL: %s", r.RequestURI)
@@ -111,18 +98,6 @@ func code(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	//if state, ok := parsedQuery["state"]; ok {
-	//	if state[0] != expectedState {
-	//		log.Printf("State: %s does not match the expected value: %s", &state, expectedState)
-	//		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	//		return
-	//	}
-	//} else {
-	//	log.Printf("Didn't find the state in the URL")
-	//	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	//	return
-	//}
 
 	// TODO. Handle parsedQuery["error"] ...
 	// https://developers.google.com/identity/protocols/oauth2/web-server#authorization-errors
@@ -138,15 +113,13 @@ func code(w http.ResponseWriter, r *http.Request) {
 		GetDevices(token.AccessToken)
 		data[refreshTokenKey] = token.RefreshToken
 		setCookie(data, w)
-		// MaxAge == 1 year
-		//session.Options.MaxAge = 365 * 24 * 3600
 		flashes := make([]flash.Flash, 0, 1)
 		flashes = append(flashes, flash.Flash{
 			Level:   flash.INFO,
 			Message: "Successfully authenticated with Google",
 		})
 		flash.SetFlashes(w, flashes)
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	} else if errorCode, ok := parsedQuery["error"]; ok {
 		w.Write([]byte(fmt.Sprintf("Got an error response from Google: %s", errorCode[0])))
 	} else {
