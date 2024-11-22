@@ -105,7 +105,11 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	// FIXME handle errors
 	flashes := make([]flash.Flash, 0)
 	refreshToken := data[refreshTokenKey]
-	token, _ := GetTokenFromRefreshToken(refreshToken)
+	token, err := GetTokenFromRefreshToken(refreshToken)
+	if err != nil {
+		http.Redirect(w, r, "/authorize", http.StatusSeeOther)
+		return
+	}
 	enableSubmit := true
 	devices, err := GetDevices(token.AccessToken)
 	if err != nil {
