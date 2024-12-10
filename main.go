@@ -84,9 +84,10 @@ func getCacheCookie(r *http.Request) (map[string]string, error) {
 func homePage(w http.ResponseWriter, r *http.Request) {
 	data, err := getCookie(r)
 	if err != nil {
-		log.Print(err.Error())
+		log.Printf("Unable to get cookie: %s\n", err.Error())
 	}
 	if !hasAuthorizationCode(data) {
+		log.Println("No authorization code found. Redirecting to /authorize")
 		http.Redirect(w, r, "/authorize", http.StatusSeeOther)
 		return
 	}
@@ -97,7 +98,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	}
 	ts, err := template.ParseFiles(files...)
 	if err != nil {
-		log.Print(err.Error())
+		log.Printf("Unable to parse files: %s\n", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -107,6 +108,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	refreshToken := data[refreshTokenKey]
 	token, err := GetTokenFromRefreshToken(refreshToken)
 	if err != nil {
+		log.Printf("Failed to get token from refresh token: %s\n", err)
 		http.Redirect(w, r, "/authorize", http.StatusSeeOther)
 		return
 	}
@@ -132,13 +134,15 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		f, err := flash.GetFlashes(w, r)
-		if err == nil {
+		if err != nil {
+			log.Printf("Failed to get flashes: %s\n", err)
+		} else {
 			flashes = f
 		}
 	}
 	err = ts.ExecuteTemplate(w, "base", map[string]interface{}{"Flashes": flashes, "Devices": devices.Devices, "enableSubmit": enableSubmit})
 	if err != nil {
-		log.Println(err.Error())
+		log.Printf("Failed to execute template: %s\n", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
