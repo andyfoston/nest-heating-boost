@@ -85,6 +85,7 @@ func code(w http.ResponseWriter, r *http.Request) {
 	data, err := getCookie(r)
 	if err != nil {
 		log.Print(err.Error())
+		data = make(map[string]string)
 	}
 	parsedURL, err := url.Parse(r.RequestURI)
 	if err != nil {
