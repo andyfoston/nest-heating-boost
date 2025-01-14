@@ -158,7 +158,7 @@ func _authenticate(uri string) (*Token, error) {
 
 	log.Printf("Authenticate uri: %s, status code: %d\n", uri, resp.StatusCode)
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Unexpected response: %s", body)
+		return nil, fmt.Errorf("unexpected response: %s", body)
 	}
 
 	token := Token{}

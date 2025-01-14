@@ -116,7 +116,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	devices, err := GetDevices(token.AccessToken)
 	if err != nil {
 		switch err {
-		case RateLimitError:
+		case ErrRateLimit:
 			flashes = append(flashes, flash.Flash{
 				Level:   flash.WARN,
 				Message: "Google have blocked requests temporarily. Please try again in a couple of minutes.",

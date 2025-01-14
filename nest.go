@@ -12,7 +12,7 @@ import (
 
 var (
 	deviceIdRegexp = regexp.MustCompile(".*/([a-zA-Z0-9-_]*)$")
-	RateLimitError = errors.New("Too many requests")
+	ErrRateLimit   = errors.New("too many requests")
 )
 
 type ParentRelation struct {
@@ -96,7 +96,7 @@ func makeApiCall(url string, method string, accessToken string, requestData io.R
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return RateLimitError
+		return ErrRateLimit
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -118,7 +118,7 @@ func GetDevices(accessToken string) (*Devices, error) {
 	err := makeApiCall(url, "GET", accessToken, nil, &response)
 	if err != nil {
 		switch err {
-		case RateLimitError:
+		case ErrRateLimit:
 			// `response` will be an empty Devices instance
 			return &response, err
 		default:
