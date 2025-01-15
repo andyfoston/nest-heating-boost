@@ -29,7 +29,7 @@ const (
 	THERMOSTAT_CACHE = "thermostat-cache"
 )
 
-func _setCookie(value map[string]string, w http.ResponseWriter, cookieName string, maxAge int) error {
+func _setCookie(value map[string]string, w http.ResponseWriter, cookieName string, expires time.Time) error {
 	encoded, err := s.Encode(cookieName, value)
 	if err == nil {
 		cookie := &http.Cookie{
@@ -38,7 +38,7 @@ func _setCookie(value map[string]string, w http.ResponseWriter, cookieName strin
 			Path:     "/",
 			Secure:   httpsCookie,
 			HttpOnly: true,
-			MaxAge:   maxAge,
+			Expires:  expires,
 		}
 		http.SetCookie(w, cookie)
 	}
@@ -46,11 +46,11 @@ func _setCookie(value map[string]string, w http.ResponseWriter, cookieName strin
 }
 
 func setCookie(value map[string]string, w http.ResponseWriter) error {
-	return _setCookie(value, w, COOKIE_NAME, 0)
+	return _setCookie(value, w, COOKIE_NAME, time.Now().Add(time.Hour*24*365))
 }
 
 func setCacheCookie(value map[string]string, w http.ResponseWriter) error {
-	return _setCookie(value, w, "_cache", 600)
+	return _setCookie(value, w, "_cache", time.Now().Add(time.Second*600))
 }
 
 func _getCookie(r *http.Request, cookieName string) (map[string]string, error) {
@@ -173,7 +173,7 @@ func runBoost(token Token, deviceId string, desiredTemp float32, duration int) {
 		log.Println("Failed to get temperature before resetting to normal:", err)
 		return
 	}
-	if *newTemperature != desiredTemp {
+	if *newTemperature+0.3 > desiredTemp || *newTemperature-0.3 < desiredTemp {
 		log.Printf("Temperature has changed since boosting. Leaving as is: Current: %f, expected: %f", *newTemperature, desiredTemp)
 		return
 	}
