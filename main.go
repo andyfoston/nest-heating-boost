@@ -173,7 +173,7 @@ func runBoost(token Token, deviceId string, desiredTemp float32, duration int) {
 		log.Println("Failed to get temperature before resetting to normal:", err)
 		return
 	}
-	if *newTemperature+0.3 > desiredTemp || *newTemperature-0.3 < desiredTemp {
+	if *newTemperature+0.3 < desiredTemp || *newTemperature-0.3 > desiredTemp {
 		log.Printf("Temperature has changed since boosting. Leaving as is: Current: %f, expected: %f", *newTemperature, desiredTemp)
 		return
 	}
