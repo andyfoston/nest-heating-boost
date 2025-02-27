@@ -17,5 +17,5 @@ jobs:
         run: go get .
 
       - name: Run tests
-        run: go test && go test flash
+        run: go test && go test ./flash
 
