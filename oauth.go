@@ -20,12 +20,6 @@ const (
 	refreshTokenKey      = "refresh_token"
 )
 
-//func hasAuthorizationCode(session *sessions.Session) bool {
-//	authCode, authOk := session.Values[authorizationCodeKey]
-//	refreshToken, refreshOk := session.Values[refreshTokenKey]
-//	return authOk && refreshOk && authCode != "" && refreshToken != ""
-//}
-
 func hasAuthorizationCode(values map[string]string) bool {
 	authCode, authOk := values[authorizationCodeKey]
 	refreshToken, refreshOk := values[refreshTokenKey]

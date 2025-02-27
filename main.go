@@ -236,7 +236,7 @@ func main() {
 		go runBoost(*token, deviceId, float32(temperature), int(duration))
 		flashes = append(flashes, flash.Flash{
 			Level:   flash.INFO,
-			Message: fmt.Sprintf("Setting heating to %s°C for %d minute(s)", r.FormValue("temperature"), duration),
+			Message: fmt.Sprintf("Setting temperature to %s°C for %d minute(s)", r.FormValue("temperature"), duration),
 		})
 		err = flash.SetFlashes(w, flashes)
 		if err != nil {
@@ -252,6 +252,5 @@ func main() {
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	log.Print("Test")
 	http.ListenAndServe(":8080", mux)
 }
