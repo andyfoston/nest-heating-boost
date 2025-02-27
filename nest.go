@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 var (
 	deviceIdRegexp = regexp.MustCompile(".*/([a-zA-Z0-9-_]*)$")
+	ErrRateLimit   = errors.New("too many requests")
 )
 
 type ParentRelation struct {
@@ -93,6 +95,9 @@ func makeApiCall(url string, method string, accessToken string, requestData io.R
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return ErrRateLimit
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -112,7 +117,13 @@ func GetDevices(accessToken string) (*Devices, error) {
 	response := Devices{}
 	err := makeApiCall(url, "GET", accessToken, nil, &response)
 	if err != nil {
-		return nil, err
+		switch err {
+		case ErrRateLimit:
+			// `response` will be an empty Devices instance
+			return &response, err
+		default:
+			return nil, err
+		}
 	}
 	return &response, nil
 }

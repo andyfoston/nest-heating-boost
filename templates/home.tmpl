@@ -30,6 +30,6 @@
             <input type="number" id="duration" name="duration" class="form-control" min="1" required>
         </div>
     </div>
-    <input type="submit" class="btn btn-primary" value="Run heating">
+    <input type="submit" class="btn btn-primary" value="Run heating" {{if not .enableSubmit}}disabled{{end}}>
 </form>
 {{ end }}

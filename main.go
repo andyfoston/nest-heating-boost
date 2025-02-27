@@ -7,44 +7,88 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
-	Flash "github.com/andyfoston/nest-heating-boost/flash"
-	_ "github.com/gorilla/sessions"
-	redistore "gopkg.in/boj/redistore.v1"
+	flash "github.com/andyfoston/nest-heating-boost/flash"
+	"github.com/gorilla/securecookie"
 )
 
 var (
-	cookieStore  = getCookieStore()
 	projectID    = os.Getenv("PROJECT_ID")
 	clientID     = os.Getenv("CLIENT_ID")
 	clientSecret = os.Getenv("CLIENT_SECRET")
+	hashKey      = os.Getenv("HASH_KEY")
+	blockKey     = os.Getenv("BLOCK_KEY")
+	s            = securecookie.New([]byte(hashKey), []byte(blockKey))
+	httpsCookie  = strings.ToLower(os.Getenv("INSECURE_COOKIE")) != "true"
 )
 
-func getCookieStore() *redistore.RediStore {
-	store, err := redistore.NewRediStore(10, "tcp", os.Getenv("REDIS_ENDPOINT"), os.Getenv("REDIS_PASSWORD"), []byte(os.Getenv("SESSION_KEY")))
-	if err != nil {
-		panic(err)
+const (
+	COOKIE_NAME      = "nest-boost"
+	THERMOSTAT_CACHE = "thermostat-cache"
+)
+
+func _setCookie(value map[string]string, w http.ResponseWriter, cookieName string, expires time.Time) error {
+	encoded, err := s.Encode(cookieName, value)
+	if err == nil {
+		cookie := &http.Cookie{
+			Name:     cookieName,
+			Value:    encoded,
+			Path:     "/",
+			Secure:   httpsCookie,
+			HttpOnly: true,
+			Expires:  expires,
+		}
+		http.SetCookie(w, cookie)
 	}
-	// MaxAge == 1 year
-	store.SetMaxAge(365 * 24 * 3600)
-	return store
+	return err
+}
+
+func setCookie(value map[string]string, w http.ResponseWriter) error {
+	return _setCookie(value, w, COOKIE_NAME, time.Now().Add(time.Hour*24*365))
+}
+
+func setCacheCookie(value map[string]string, w http.ResponseWriter) error {
+	return _setCookie(value, w, "_cache", time.Now().Add(time.Second*600))
+}
+
+func _getCookie(r *http.Request, cookieName string) (map[string]string, error) {
+	cookie, err := r.Cookie(cookieName)
+	value := make(map[string]string)
+	if err != nil {
+		switch err {
+		case http.ErrNoCookie:
+			return value, nil
+		default:
+			return nil, err
+		}
+	}
+	err = s.Decode(cookieName, cookie.Value, &value)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+func getCookie(r *http.Request) (map[string]string, error) {
+	return _getCookie(r, COOKIE_NAME)
+}
+
+func getCacheCookie(r *http.Request) (map[string]string, error) {
+	return _getCookie(r, "_cache")
 }
 
 // Get temperature from device
 
 func homePage(w http.ResponseWriter, r *http.Request) {
-	session, err := cookieStore.Get(r, "session")
+	data, err := getCookie(r)
 	if err != nil {
-		log.Print(err.Error())
+		log.Printf("Unable to get cookie: %s\n", err.Error())
 	}
-	if !hasAuthorizationCode(session) {
-		err = session.Save(r, w)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error: %s", err), http.StatusInternalServerError)
-			return
-		}
-		http.Redirect(w, r, "/authorize", http.StatusTemporaryRedirect)
+	if !hasAuthorizationCode(data) {
+		log.Println("No authorization code found. Redirecting to /authorize")
+		http.Redirect(w, r, "/authorize", http.StatusSeeOther)
 		return
 	}
 
@@ -54,34 +98,54 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	}
 	ts, err := template.ParseFiles(files...)
 	if err != nil {
-		log.Print(err.Error())
+		log.Printf("Unable to parse files: %s\n", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// FIXME handle errors
-	refreshToken := session.Values[refreshTokenKey].(string)
-	token, _ := GetTokenFromRefreshToken(refreshToken)
-	//fmt.Printf("New Token: %s\n", token.AccessToken)
-	devices, _ := GetDevices(token.AccessToken)
-	fmt.Printf("DEVICES: %v\n", devices)
-	if devices == nil {
-		log.Println("Unable to get a list of devices")
-		session.AddFlash(Flash.Flash{
-			Level:   Flash.WARN,
-			Message: "Unable to get a list of devices. Please try authorization access to Nest again",
-		})
-		session.Save(r, w)
-		http.Redirect(w, r, "/authorize", http.StatusTemporaryRedirect)
+	flashes := make([]flash.Flash, 0)
+	refreshToken := data[refreshTokenKey]
+	token, err := GetTokenFromRefreshToken(refreshToken)
+	if err != nil {
+		log.Printf("Failed to get token from refresh token: %s\n", err)
+		http.Redirect(w, r, "/authorize", http.StatusSeeOther)
 		return
 	}
-	err = ts.ExecuteTemplate(w, "base", map[string]interface{}{"Flashes": session.Flashes(), "Devices": devices.Devices})
+	enableSubmit := true
+	devices, err := GetDevices(token.AccessToken)
 	if err != nil {
-		log.Println(err.Error())
+		switch err {
+		case ErrRateLimit:
+			flashes = append(flashes, flash.Flash{
+				Level:   flash.WARN,
+				Message: "Google have blocked requests temporarily. Please try again in a couple of minutes.",
+			})
+			enableSubmit = false
+		default:
+			log.Println("Unable to get a list of devices. Token: ", token.AccessToken, "Error:", err)
+			flashes = append(flashes, flash.Flash{
+				Level:   flash.WARN,
+				Message: "Unable to get a list of devices. Please try authorization access to Nest again",
+			})
+			flash.SetFlashes(w, flashes)
+			http.Redirect(w, r, "/authorize", http.StatusSeeOther)
+			return
+		}
+	} else {
+		f, err := flash.GetFlashes(w, r)
+		if err != nil {
+			log.Printf("Failed to get flashes: %s\n", err)
+		} else {
+			flashes = f
+		}
+	}
+	err = ts.ExecuteTemplate(w, "base", map[string]interface{}{"Flashes": flashes, "Devices": devices.Devices, "enableSubmit": enableSubmit})
+	if err != nil {
+		log.Printf("Failed to execute template: %s\n", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	session.Save(r, w)
 }
 
 func runBoost(token Token, deviceId string, desiredTemp float32, duration int) {
@@ -109,7 +173,7 @@ func runBoost(token Token, deviceId string, desiredTemp float32, duration int) {
 		log.Println("Failed to get temperature before resetting to normal:", err)
 		return
 	}
-	if *newTemperature != desiredTemp {
+	if *newTemperature+0.3 < desiredTemp || *newTemperature-0.3 > desiredTemp {
 		log.Printf("Temperature has changed since boosting. Leaving as is: Current: %f, expected: %f", *newTemperature, desiredTemp)
 		return
 	}
@@ -122,47 +186,62 @@ func main() {
 
 	mux.HandleFunc("/boost", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
-		session, err := cookieStore.Get(r, "session")
-		if err != nil {
-			log.Print(err.Error())
-		}
-
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		// Setting the redirect before cookies appears to cause cookies not to be set
+		defer http.Redirect(w, r, "/", http.StatusSeeOther)
 		deviceId := r.FormValue("device")
 		temperature, tempErr := strconv.ParseFloat(r.FormValue("temperature"), 32)
 		duration, durationErr := strconv.ParseInt(r.FormValue("duration"), 10, 16)
+		flashes := make([]flash.Flash, 0, 1)
 		if deviceId == "" {
-			session.AddFlash(Flash.Flash{
-				Level:   Flash.ERROR,
+			flashes = append(flashes, flash.Flash{
+				Level:   flash.ERROR,
 				Message: "Unable to find the thermostat to adjust",
 			})
 		}
 		if tempErr != nil {
-			session.AddFlash(Flash.Flash{
-				Level:   Flash.ERROR,
+			flashes = append(flashes, flash.Flash{
+				Level:   flash.ERROR,
 				Message: fmt.Sprintf("Unable to get the temperature to set to: %s", tempErr),
 			})
 		}
 		if durationErr != nil {
-			session.AddFlash(Flash.Flash{
-				Level:   Flash.ERROR,
+			flashes = append(flashes, flash.Flash{
+				Level:   flash.ERROR,
 				Message: fmt.Sprintf("Unable to get the duration to run the heating for: %s", tempErr),
 			})
 		}
 		if deviceId == "" || tempErr != nil || durationErr != nil {
-			session.Save(r, w)
+			flash.SetFlashes(w, flashes)
 			return
 		}
 
 		// FIXME handle error
-		refreshToken := session.Values[refreshTokenKey].(string)
-		token, _ := GetTokenFromRefreshToken(refreshToken)
+		data, err := getCookie(r)
+		if err != nil {
+			log.Println("Failed to get cookie. Error", err.Error())
+		}
+		refreshToken := data[refreshTokenKey]
+		log.Printf("refreshToken: %s\n", refreshToken)
+		token, err := GetTokenFromRefreshToken(refreshToken)
+		if err != nil {
+			log.Printf("Failed: %s\n", err)
+			flashes = append(flashes, flash.Flash{
+				Level:   flash.ERROR,
+				Message: fmt.Sprintf("Failed to run boost: %s", err),
+			})
+			flash.SetFlashes(w, flashes)
+			return
+		}
+		log.Printf("Token: %v\n", token)
 		go runBoost(*token, deviceId, float32(temperature), int(duration))
-		session.AddFlash(Flash.Flash{
-			Level:   Flash.INFO,
-			Message: fmt.Sprintf("Setting heating to %s°C for %d minute(s)", r.FormValue("temperature"), duration),
+		flashes = append(flashes, flash.Flash{
+			Level:   flash.INFO,
+			Message: fmt.Sprintf("Setting temperature to %s°C for %d minute(s)", r.FormValue("temperature"), duration),
 		})
-		session.Save(r, w)
+		err = flash.SetFlashes(w, flashes)
+		if err != nil {
+			log.Printf("Failed to set flash: %s\n", err)
+		}
 	})
 	mux.HandleFunc("/", homePage)
 	mux.HandleFunc("/authorize", AuthorizeAccess)
@@ -171,11 +250,6 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		_, err := cookieStore.Get(r, "session")
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Unable to access cookiestore: %s", err.Error()), http.StatusInternalServerError)
-			return
-		}
 		w.WriteHeader(http.StatusOK)
 	})
 	http.ListenAndServe(":8080", mux)
