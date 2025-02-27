@@ -1,0 +1,35 @@
+{{ define "title" }}Boost heating{{ end }}
+
+{{ define "body" }}
+<h1>Nest Heating Boost</h1>
+<form action="/boost" method="post" class="needs-validation">
+    <div class="row mb-3">
+        <label for="device" class="col-sm-2 col-form-label">Thermostat:</label>
+        <div class="col-sm-3">
+            <select class="form-select" name="device" required>
+                {{ range $index, $element := .Devices }}
+                    <option {{ if eq $index 0 }}selected{{ end }} value="{{ $element.DeviceID }}">{{ $element.DisplayName }}</option>
+                {{ else }}
+                    <option selected>No thermostats found.</option>
+                {{ end }}
+            </select>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <label for="temperature" class="col-sm-2 col-form-label">Set Temperature:</label>
+        <div class="col-sm-3">
+            <input type="number" id="temperature" name="temperature" class="form-control" min="9" max="40" required>
+            <div class="invalid-feedback">
+                Please choose a valid temperature between 9 and 40 degress celcius.
+            </div>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <label for="duration" class="col-sm-2 col-form-label">Duration (minutes):</label>
+        <div class="col-sm-3">
+            <input type="number" id="duration" name="duration" class="form-control" min="1" required>
+        </div>
+    </div>
+    <input type="submit" class="btn btn-primary" value="Run heating" {{if not .enableSubmit}}disabled{{end}}>
+</form>
+{{ end }}
