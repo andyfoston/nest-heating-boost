@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/andyfoston/nest-heating-boast.git
+    repoURL: https://github.com/andyfoston/nest-heating-boost.git
     targetRevision: HEAD
     path: tekton
   destination:
