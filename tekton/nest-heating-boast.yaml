@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nest-heating-boast-pipelines
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/andyfoston/nest-heating-boast.git
+    targetRevision: HEAD
+    path: tekton
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: tekton-pipelines
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
