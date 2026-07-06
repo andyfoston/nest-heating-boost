@@ -1,0 +1,41 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: docker-test
+spec:
+  workspaces:
+    - name: source
+  steps:
+    - name: run-tests
+      image: docker:24.0.5-cli
+      workingDir: $(workspaces.source.path)
+      env:
+        # Route docker CLI traffic to the sidecar
+        - name: DOCKER_HOST
+          value: tcp://localhost:2376
+        - name: DOCKER_TLS_VERIFY
+          value: '1'
+        - name: DOCKER_CERT_PATH
+          value: /certs/client
+      script: |
+        #!/bin/sh
+        set -ex
+        # Example test: Build a test image and run it
+        docker build -t test-image .
+      volumeMounts:
+        - name: dind-certs
+          mountPath: /certs/client
+  sidecars:
+    - name: server
+      image: docker:24.0.5-dind
+      env:
+        - name: DOCKER_TLS_CERTDIR
+          value: /certs
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - name: dind-certs
+          mountPath: /certs/client
+  volumes:
+    - name: dind-certs
+      emptyDir: {}
