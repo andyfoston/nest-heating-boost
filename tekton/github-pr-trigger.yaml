@@ -1,0 +1,88 @@
+---
+# 1. TriggerBinding: Extracts data from the GitHub Webhook JSON
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-pr-binding
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: git-revision
+      value: $(body.pull_request.head.sha) # The commit triggering the PR
+    - name: git-url
+      value: $(body.repository.clone_url)
+    - name: pr-number
+      value: $(body.pull_request.number)
+
+---
+# 2. TriggerTemplate: Creates the PipelineRun using the extracted data
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: github-pr-template
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: git-revision
+    - name: git-url
+    - name: pr-number
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: pr-run-$(tt.params.pr-number)-
+        namespace: tekton-pipelines
+        annotations:
+          tekton.dev/auto-cleanup-pvc: "true"
+      spec:
+        pipelineRef:
+          name: pr-build-pipeline
+        podTemplate:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+        params:
+          - name: repo-url
+            value: $(tt.params.git-url)
+          - name: revision
+            value: $(tt.params.git-revision)
+          - name: image-reference
+            # Tags the image with the PR commit SHA
+            value: ghcr.io/andyfoston/nest-heating-boost:$(tt.params.git-revision)
+        workspaces:
+          - name: shared-data
+            volumeClaimTemplate:
+              spec:
+                accessModes: [ReadWriteOnce]
+                resources:
+                  requests:
+                    storage: 1Gi
+                storageClassName: nfs-delete 
+          - name: docker-credentials
+            secret:
+              secretName: github-registry
+
+---
+# 3. EventListener: The actual service that listens for the GitHub webhook
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: github-pr-listener
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: tekton-triggers-sa
+  triggers:
+    - name: github-pr-trigger
+      interceptors:
+        - ref:
+            name: "github"
+          params:
+            - name: "eventTypes"
+              value: ["pull_request"]
+      bindings:
+        - ref: github-pr-binding
+      template:
+        ref: github-pr-template
