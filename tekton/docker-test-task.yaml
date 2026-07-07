@@ -21,6 +21,13 @@ spec:
       script: |
         #!/bin/sh
         set -ex
+
+        echo "Waiting for Docker daemon to be ready..."
+        while ! docker info >/dev/null 2>&1; do
+          sleep 1
+        done
+        echo "Docker is ready!"
+
         # Example test: Build a test image and run it
         docker build -t test-image .
       volumeMounts:
