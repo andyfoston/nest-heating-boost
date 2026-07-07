@@ -32,6 +32,8 @@ spec:
       metadata:
         generateName: pr-run-$(tt.params.pr-number)-
         namespace: tekton-pipelines
+        annotations:
+          tekton.dev/auto-cleanup-pvc: "true"
       spec:
         pipelineRef:
           name: pr-build-pipeline
