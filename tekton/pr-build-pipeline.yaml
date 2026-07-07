@@ -1,0 +1,53 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: pr-build-pipeline
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: revision
+      type: string
+    - name: image-reference
+      type: string
+  workspaces:
+    - name: shared-data
+    - name: docker-credentials # Used to push to GHCR
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+
+    - name: run-docker-tests
+      taskRef:
+        name: docker-test
+      runAfter:
+        - fetch-repository
+      workspaces:
+        - name: source
+          workspace: shared-data
+
+    - name: build-and-push-image
+      taskRef:
+        name: buildah
+      runAfter:
+        - run-docker-tests
+      workspaces:
+        - name: source
+          workspace: shared-data
+        - name: dockerconfig
+          workspace: docker-credentials
+      params:
+        - name: IMAGE
+          value: $(params.image-reference)
+        - name: FORMAT
+          value: docker

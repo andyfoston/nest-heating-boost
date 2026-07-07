@@ -2,6 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: docker-test
+  namespace: tekton-pipelines
 spec:
   workspaces:
     - name: source
