@@ -31,6 +31,7 @@ spec:
       kind: PipelineRun
       metadata:
         generateName: pr-run-$(tt.params.pr-number)-
+        namespace: tekton-pipelines
       spec:
         pipelineRef:
           name: pr-build-pipeline
